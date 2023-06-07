@@ -4,7 +4,9 @@ from datetime import datetime as dt
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
-from django.views.generic import CreateView, ListView, DetailView, UpdateView, DeleteView
+from django.views.generic import (
+    CreateView, ListView, DetailView, UpdateView, DeleteView
+)
 from django.urls import reverse_lazy, reverse
 from django.db.models import Count
 from django.http import Http404
@@ -22,7 +24,8 @@ class CommentMixin:
     pk_url_kwarg = 'comment_id'
     login_url = '/auth/login/'
 
-    def dispatch(self, request, *args, **kwargs):  # Проверка является ли текущий пользователь автором Поста
+    def dispatch(self, request, *args, **kwargs):
+        # Проерка яляется ли текущий пользователь автором Поста
         obj = self.get_object()
         if obj.author != self.request.user:
             raise Http404()
@@ -39,7 +42,8 @@ class PostFormMixin:
 
 
 class PostUserRedirectMixin:
-    def dispatch(self, request, *args, **kwargs):  # Проверка является ли текущий пользователь автором Поста + редирект
+    def dispatch(self, request, *args, **kwargs):
+        # Проверка является ли текущий пользователь автором Поста + редирект
         obj = self.get_object()
         if obj.author != self.request.user:
             return redirect(self.get_login_url())
@@ -49,27 +53,38 @@ class PostUserRedirectMixin:
 class PostCreateView(LoginRequiredMixin, PostFormMixin, PostMixin, CreateView):
     login_url = '/auth/login/'
 
-    def get_success_url(self):  # Определяем страницу для success_url
+    def get_success_url(self):
+        # Определяем страницу для success_url
         username = self.request.user.username
         return f'/profile/{username}/'
 
-    def form_valid(self, form):  # Автозаполняем поле Автор, данные берем из запроса
+    def form_valid(self, form):
+        # Автозаполняем поле Автор, данные берем из запроса
         form.instance.author = self.request.user
         return super().form_valid(form)
 
 
-class PostUpdateView(LoginRequiredMixin, PostMixin, PostFormMixin, PostUserRedirectMixin, UpdateView):
+class PostUpdateView(LoginRequiredMixin,
+                     PostMixin,
+                     PostFormMixin,
+                     PostUserRedirectMixin,
+                     UpdateView):
     success_url = '/posts/{id}/'
 
-    def get_login_url(self):  # Определяем куда направить незалогиненного пользователя
+    def get_login_url(self):
+        # Определяем куда направить незалогиненного пользователя
         id = self.kwargs['pk']
         return f'/posts/{id}/'
 
 
-class PostDeleteView(LoginRequiredMixin, PostMixin, PostUserRedirectMixin, DeleteView):
+class PostDeleteView(LoginRequiredMixin,
+                     PostMixin,
+                     PostUserRedirectMixin,
+                     DeleteView):
     success_url = reverse_lazy('blog:index')
 
-    def get_login_url(self):  # Определяем куда направить незалогиненного пользователя
+    def get_login_url(self):
+        # Определяем куда направить незалогиненного пользователя
         id = self.kwargs['pk']
         return f'/posts/{id}/'
 
@@ -80,7 +95,11 @@ class PostListView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Post.objects.select_related('category', 'location','author').filter(
+        queryset = Post.objects.select_related(
+            'category',
+            'location',
+            'author'
+        ).filter(
             is_published=True,
             category__is_published=True,
             pub_date__lte=dt.now(tz=timezone.get_current_timezone())
@@ -119,7 +138,8 @@ class CategoryPosts(PostMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super(CategoryPosts, self).get_context_data(**kwargs)
         context['category'] = get_object_or_404(
-            Category.objects.filter(slug=self.kwargs['category'], is_published=True)
+            Category.objects.filter(slug=self.kwargs['category'],
+                                    is_published=True)
         )
         return context
 
@@ -137,22 +157,27 @@ class Profile(ListView):
                 'author',
                 'category',
                 'location'
-            ).annotate(comment_count=Count('comment')).filter(author=user).order_by('-pub_date')
+            ).annotate(
+                comment_count=Count('comment')
+            ).filter(author=user).order_by('-pub_date')
         else:
             queryset = Post.objects.select_related(
                 'author',
                 'category',
                 'location'
-            ).annotate(comment_count=Count('comment')).filter(
-                author=user,
-                is_published=True,
-                pub_date__lte=dt.now(tz=timezone.get_current_timezone())
-            ).order_by('-pub_date')
+            ).annotate(
+                comment_count=Count('comment')
+            ).filter(author=user,
+                     is_published=True,
+                     pub_date__lte=dt.now(tz=timezone.get_current_timezone())
+                     ).order_by('-pub_date')
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super(Profile, self).get_context_data(**kwargs)
-        context['profile'] = get_object_or_404(User, username=self.kwargs.get('author'))
+        context['profile'] = get_object_or_404(
+            User, username=self.kwargs.get('author')
+        )
         return context
 
 

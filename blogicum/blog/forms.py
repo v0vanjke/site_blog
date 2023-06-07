@@ -8,7 +8,9 @@ class PostForm(forms.ModelForm):
         model = Post
         fields = ('title', 'text', 'pub_date', 'location', 'category', 'image')
         widgets = {
-            'pub_date': forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'})
+            'pub_date': forms.DateTimeInput(
+                format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local'}
+            )
         }
 
 

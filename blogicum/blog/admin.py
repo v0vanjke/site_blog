@@ -1,6 +1,6 @@
-from blog.models import Category, Location, Post
-
 from django.contrib import admin
+
+from blog.models import Category, Comment, Location, Post
 
 
 class PostsInline(admin.StackedInline):
@@ -35,3 +35,12 @@ class PostAdmin(admin.ModelAdmin):
     )
     search_fields = ('title',)
     list_display_links = ('title',)
+
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = (
+        'text',
+        'author',
+        'created_at',
+    )

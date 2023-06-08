@@ -156,12 +156,12 @@ class Profile(ListView):
     def get_queryset(self):
         user = get_object_or_404(User, username=self.kwargs.get('author'))
         base_query = Post.objects.select_related(
-                'author',
-                'category',
-                'location',
-            ).annotate(
-                comment_count=Count('comment')
-            ).filter(author=user).order_by('-pub_date')
+            'author',
+            'category',
+            'location',
+        ).annotate(comment_count=Count('comment')).filter(
+            author=user,
+        ).order_by('-pub_date')
         if user == self.request.user:
             queryset = base_query
         else:

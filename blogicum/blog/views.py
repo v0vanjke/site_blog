@@ -6,8 +6,9 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
-from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
-                                  UpdateView,)
+from django.views.generic import (
+    CreateView, DeleteView, DetailView, ListView, UpdateView,
+)
 
 from blog.forms import CommentForm, PostForm
 from blog.models import Category, Comment, Post, User
@@ -49,13 +50,21 @@ class PostUserRedirectMixin:
         return super().dispatch(request, *args, **kwargs)
 
 
-class PostCreateView(LoginRequiredMixin, PostFormMixin, PostMixin, CreateView):
-    login_url = '/auth/login/'
-
+class GetSuccessUrlCurrentUserProfileMixin:
     def get_success_url(self):
         # Определяем страницу для success_url
         username = self.request.user.username
         return f'/profile/{username}/'
+
+
+class PostCreateView(
+    LoginRequiredMixin,
+    PostFormMixin,
+    PostMixin,
+    GetSuccessUrlCurrentUserProfileMixin,
+    CreateView,
+):
+    login_url = '/auth/login/'
 
     def form_valid(self, form):
         # Автозаполняем поле Автор, данные берем из запроса
@@ -100,7 +109,7 @@ class PostListView(ListView):
             is_published=True,
             category__is_published=True,
             pub_date__lte=dt.now(tz=timezone.get_current_timezone()),
-        ).order_by('-pub_date').annotate(comment_count=Count('comment'))
+        ).order_by('-pub_date').annotate(comment_count=Count('post_comment'))
         return queryset
 
 
@@ -108,15 +117,10 @@ class PostDetailView(PostMixin, PostFormMixin, DetailView):
     template_name = 'blog/detail.html'
 
     def get_context_data(self, **kwargs):
-        # context = super().get_context_data(**kwargs)
-        # context['form'] = CommentForm()
-        # context['comments'] = (
-        #     self.object.comment.select_related('author')
-        # )
         return dict(
             **super().get_context_data(**kwargs),
             form=CommentForm(),
-            comments=self.object.comment.select_related('author'),
+            comments=self.object.post_comment.select_related('author'),
         )
 
 
@@ -127,8 +131,8 @@ class CategoryPosts(PostMixin, ListView):
 
     def get_queryset(self):
         return Post.objects.select_related(
-            'author', 'location', 'category'
-        ).annotate(comment_count=Count('comment')).filter(
+            'author', 'location', 'category',
+        ).annotate(comment_count=Count('post_comment')).filter(
             category__slug=self.kwargs['category'],
             is_published=True,
             category__is_published=True,
@@ -141,7 +145,7 @@ class CategoryPosts(PostMixin, ListView):
             category=get_object_or_404(
                 Category.objects.filter(
                     slug=self.kwargs['category'],
-                    is_published=True
+                    is_published=True,
                 )
             )
         )
@@ -155,13 +159,11 @@ class Profile(ListView):
 
     def get_queryset(self):
         user = get_object_or_404(User, username=self.kwargs.get('author'))
-        base_query = Post.objects.select_related(
+        base_query = user.user_posts.select_related(
             'author',
             'category',
             'location',
-        ).annotate(comment_count=Count('comment')).filter(
-            author=user,
-        ).order_by('-pub_date')
+        ).annotate(comment_count=Count('post_comment')).order_by('-pub_date')
         if user == self.request.user:
             queryset = base_query
         else:
@@ -173,22 +175,23 @@ class Profile(ListView):
 
     def get_context_data(self, **kwargs):
         return dict(
-            **super(Profile, self).get_context_data(**kwargs),
+            **super().get_context_data(**kwargs),
             profile=get_object_or_404(
                 User, username=self.kwargs.get('author')
             )
         )
 
 
-class EditProfile(LoginRequiredMixin, UpdateView):
+class EditProfile(
+    LoginRequiredMixin, GetSuccessUrlCurrentUserProfileMixin, UpdateView,
+):
     template_name = 'blog/user.html'
     model = User
     fields = ('first_name', 'last_name', 'username', 'email')
-    success_url = '/profile/{username}/'
     login_url = '/auth/login/'
 
     def get_object(self, queryset=None):
-        return User.objects.filter(username=self.request.user).first()
+        return self.request.user
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
@@ -208,7 +211,7 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse('blog:post_detail', args={self.kwargs['pk']})
+        return reverse('blog:post_detail', args=[self.kwargs['pk'], ])
 
 
 class CommentUpdateView(LoginRequiredMixin, CommentMixin, UpdateView):
